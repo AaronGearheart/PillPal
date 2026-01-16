@@ -1,0 +1,15 @@
+{
+  "name": "Pill Tracker Kiosk",
+  "short_name": "PillTracker",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f4f7f9",
+  "theme_color": "#2ecc71",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2864/2864448.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medication Tracker</title>
+    <!-- Pointing to local tailwind file -->
+    <script src="tailwind.min.js"></script>
+    <!-- Pointing to local Font Awesome CSS -->
+    <link rel="stylesheet" href="css/all.min.css">
+    
+    <style>
+        /* Custom Animations */
+        @keyframes pulse-red {
+            0%, 100% { background-color: #ef4444; box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.7); }
+            50% { background-color: #dc2626; box-shadow: 0 0 20px 10px rgba(239, 68, 68, 0); }
+        }
+        .pulse-btn {
+            animation: pulse-red 2s infinite;
+        }
+        /* Lock orientation and selection to prevent accidental zooms/selects */
+        body {
+            user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white h-screen w-screen overflow-hidden font-sans">
+
+    <!-- MAIN APP INTERFACE -->
+    <div id="app-view" class="flex flex-row h-full w-full">
+        
+        <!-- LEFT PANEL: INFORMATION (60%) -->
+        <div class="w-3/5 h-full flex flex-col p-6 border-r border-slate-700 bg-slate-800 relative overflow-y-auto">
+            
+            <!-- Clock -->
+            <div class="mb-6 text-center">
+                <h1 id="clock-display" class="text-9xl font-bold tracking-wider text-slate-100">--:-- --</h1>
+                <p id="date-display" class="text-2xl text-slate-400 mt-2">Loading...</p>
+            </div>
+
+            <!-- Eating Status (Critical Info) -->
+            <div id="eating-panel" class="p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600">
+                <h2 id="eat-status-text" class="text-4xl font-bold uppercase mb-2">You Can Eat</h2>
+                <p id="eat-timer-text" class="text-xl opacity-90">Next limitation in 2h 30m</p>
+            </div>
+
+            <!-- Next Eat / Next Dose Times -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-700 p-4 rounded-2xl text-center">
+                    <span class="text-slate-400 text-sm block mb-2">Next Eat</span>
+                    <span id="next-eat-display" class="font-mono text-5xl font-bold text-emerald-400">--:--</span>
+                </div>
+                <div class="bg-slate-700 p-4 rounded-2xl text-center">
+                    <span class="text-slate-400 text-sm block mb-2">Next Dose</span>
+                    <span id="next-dose-display" class="font-mono text-5xl font-bold text-yellow-400">--:--</span>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-4 text-lg">
+                <div class="bg-slate-700 p-3 rounded-lg relative overflow-hidden">
+                    <span class="text-slate-400 text-sm block">Current Interval</span>
+                    <span id="interval-display" class="font-mono text-2xl font-bold">4.0h</span>
+                    <!-- Warning badge for reduced interval -->
+                    <div id="reduced-interval-badge" class="hidden absolute top-0 right-0 bg-red-600 text-xs px-2 py-1 rounded-bl-lg font-bold uppercase">
+                        Reduced
+                    </div>
+                </div>
+                <div class="bg-slate-700 p-3 rounded-lg relative overflow-hidden">
+                    <span class="text-slate-400 text-sm block">Doses Taken</span>
+                    <span id="doses-display" class="font-mono text-2xl font-bold">0 / 4</span>
+                    <!-- Warning badge for reduced doses -->
+                    <div id="reduced-badge" class="hidden absolute top-0 right-0 bg-red-600 text-xs px-2 py-1 rounded-bl-lg font-bold uppercase">
+                        Reduced
+                    </div>
+                </div>
+                <div class="col-span-2 bg-slate-700 p-3 rounded-lg">
+                    <span class="text-slate-400 text-sm block">Target End Time</span>
+                    <span id="target-end-display" class="font-mono text-xl">22:00</span>
+                </div>
+                <button onclick="toggleSettings()" class="col-span-2 bg-slate-700 p-3 rounded-lg hover:bg-slate-600 transition-colors text-left">
+                    <span class="text-slate-400 text-sm block"><i class="fa-solid fa-gear mr-2"></i>Settings</span>
+                    <span class="text-slate-300 text-sm">Caregiver Options</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: ACTIONS (40%) -->
+        <div class="w-2/5 h-full flex flex-col bg-slate-900 p-4 gap-4">
+            
+            <!-- TAKE PILL BUTTON -->
+            <button id="btn-take" onclick="takePill()" disabled class="flex-grow rounded-3xl text-4xl font-bold uppercase tracking-widest shadow-lg transition-all disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none bg-slate-600">
+                Wait
+            </button>
+
+            <!-- SNOOZE BUTTON -->
+            <button id="btn-snooze" onclick="snooze()" class="h-1/5 bg-blue-600 active:bg-blue-800 rounded-2xl text-2xl font-semibold shadow-lg text-white disabled:bg-slate-700 disabled:text-slate-500 flex flex-col items-center justify-center leading-tight">
+                <!-- Content injected by JS now to ensure state updates -->
+                Loading...
+            </button>
+
+            <!-- UNDO BUTTON -->
+            <button id="btn-undo" onclick="undoLastAction()" class="h-24 bg-orange-600 active:bg-orange-800 rounded-2xl text-xl font-semibold shadow-lg text-white">
+                <i class="fa-solid fa-rotate-left mr-2"></i> Undo Mistake
+            </button>
+        </div>
+    </div>
+
+    <!-- CONGRATS OVERLAY -->
+    <div id="congrats-overlay" class="hidden fixed inset-0 bg-slate-900/95 z-50 flex flex-col items-center justify-center text-center p-10">
+        <i class="fa-solid fa-circle-check text-emerald-500 text-9xl mb-8"></i>
+        <h1 class="text-6xl font-bold text-white mb-4">All Doses Complete!</h1>
+        <p class="text-2xl text-slate-300 mb-12">Great job today. Relax until tomorrow.</p>
+        <button onclick="dismissCongrats()" class="bg-blue-600 text-white text-3xl px-12 py-6 rounded-2xl font-bold shadow-xl">
+            Close Screen
+        </button>
+        <button onclick="manualResetDay()" class="mt-8 text-slate-500 underline text-lg">
+            Start New Day (Reset All)
+        </button>
+    </div>
+
+    <!-- SETTINGS OVERLAY -->
+    <div id="settings-overlay" class="hidden fixed inset-0 bg-slate-800 z-50 overflow-y-auto p-8">
+        <div class="max-w-2xl mx-auto bg-slate-700 p-8 rounded-xl shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold">Caregiver Settings</h2>
+                <button onclick="toggleSettings()" class="text-red-400 text-xl font-bold">Close X</button>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Time Offset -->
+                <div class="bg-slate-800 p-4 rounded-lg">
+                    <label class="block text-slate-400 mb-2">Override System Time (24h Format)</label>
+                    <div class="flex gap-2">
+                        <input type="time" id="set-time-input" class="bg-slate-900 p-3 rounded text-xl text-white w-full border border-slate-600">
+                        <button onclick="applyTimeOffset()" class="bg-blue-600 px-4 rounded font-bold">Set</button>
+                        <button onclick="clearTimeOffset()" class="bg-slate-600 px-4 rounded">Reset</button>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-2">Use this if the tablet time is wrong</p>
+                </div>
+
+                <!-- Parameters -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-slate-400">Target Doses</label>
+                        <input type="number" id="set-doses" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="4">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400">End Time (24h)</label>
+                        <input type="time" id="set-endtime" class="bg-slate-900 p-3 rounded text-xl text-white w-full border border-slate-600">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400">Standard Interval (h)</label>
+                        <input type="number" id="set-interval" step="0.5" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="4">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400">Minimum Interval (h)</label>
+                        <input type="number" id="set-min-interval" step="0.5" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="2">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400">Reduction Step (h)</label>
+                        <input type="number" id="set-step" step="0.25" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="0.5">
+                    </div>
+                </div>
+
+                <!-- Beep Settings -->
+                <div class="bg-slate-800 p-4 rounded-lg">
+                    <label class="block text-slate-400 mb-3 font-bold">Alarm Settings</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-slate-400 text-sm">First Minute Beep Interval (sec)</label>
+                            <input type="number" id="set-beep-interval-1" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="1">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 text-sm">After 1min Interval (sec)</label>
+                            <input type="number" id="set-beep-interval-2" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="30">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-6 border-t border-slate-600">
+                    <button onclick="saveSettings()" class="w-full bg-emerald-600 p-4 rounded-xl text-xl font-bold">Save & Apply Changes</button>
+                </div>
+                
+                <div class="pt-6 text-center">
+                    <button onclick="hardReset()" class="text-red-500 underline">Hard Reset (Wipe All Data)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const DEFAULT_STATE = {
+            settings: {
+                totalDoses: 4,
+                endHour: 22,
+                standardInterval: 4,
+                minInterval: 2,
+                step: 0.5,
+                beepInterval1: 1,  // First minute: beep every N seconds
+                beepInterval2: 30  // After 1 minute: beep every N seconds
+            },
+            history: [], // Stack for Undo
+            data: {
+                dosesTaken: 0,
+                lastDoseTime: null, // timestamp
+                firstDoseTime: null, // timestamp of the first dose of the day
+                nextDoseScheduled: null, // timestamp
+                currentInterval: 4,
+                snoozesUsedForCurrent: 0,
+                timeOffset: 0, // ms difference
+                dayCompleted: false,
+                effectiveTotalDoses: 4 // Stores the max achievable doses
+            }
+        };
+
+        let state = JSON.parse(localStorage.getItem('pillTrackerState')) || JSON.parse(JSON.stringify(DEFAULT_STATE));
+        
+        // Ensure legacy states have the new field
+        if (state.data.effectiveTotalDoses === undefined) {
+            state.data.effectiveTotalDoses = state.settings.totalDoses;
+        }
+
+        // --- BEEPING LOGIC ---
+        let beepStartTime = null; // When beeping should start (when pill is due)
+        let lastBeepCount = 0; // Track how many beeps in current sequence
+
+        function playBeep() {
+            // Create a buzzer-like sound with aggressive tone
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioContext.currentTime;
+            
+            // Create square wave buzzer
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.frequency.value = 1200; // Higher frequency for buzzer
+            osc.type = 'square'; // Square wave for aggressive buzzer sound
+            
+            // Aggressive envelope - loud and quick
+            gain.gain.setValueAtTime(0.6, now);
+            gain.gain.linearRampToValueAtTime(0.6, now + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+            
+            osc.start(now);
+            osc.stop(now + 0.12);
+        }
+
+        function handleBeeping() {
+            const now = getNow();
+            
+            // Check if a pill is currently due
+            const d = state.data;
+            if (d.dosesTaken === 0 || d.dosesTaken >= (d.effectiveTotalDoses || state.settings.totalDoses)) {
+                beepStartTime = null;
+                lastBeepCount = 0;
+                return; // Not in active dosing period
+            }
+            
+            // Check if due
+            if (d.nextDoseScheduled && now >= new Date(d.nextDoseScheduled)) {
+                if (!beepStartTime) {
+                    beepStartTime = now.getTime();
+                    lastBeepCount = 0;
+                }
+                
+                const elapsedMs = now.getTime() - beepStartTime;
+                const elapsedSecs = elapsedMs / 1000;
+                const interval1 = state.settings.beepInterval1 || 2; // First minute interval
+                const interval2 = state.settings.beepInterval2 || 30; // After first minute interval
+                
+                // First minute: beep at interval1 seconds
+                if (elapsedSecs < 60) {
+                    const beepsExpected = Math.floor(elapsedSecs / interval1) + 1;
+                    if (beepsExpected > lastBeepCount) {
+                        playBeep();
+                        lastBeepCount = beepsExpected;
+                    }
+                } 
+                // After first minute: 3 beeps every interval2 seconds
+                else {
+                    const beepsInFirstMin = Math.floor(60 / interval1);
+                    const timeAfterMin = elapsedSecs - 60;
+                    const sequencesAfterMin = Math.floor(timeAfterMin / interval2) + 1;
+                    const totalBeepsExpected = beepsInFirstMin + (sequencesAfterMin * 3);
+                    
+                    if (totalBeepsExpected > lastBeepCount) {
+                        // Play 3 beeps in quick succession
+                        playBeep();
+                        setTimeout(playBeep, 100);
+                        setTimeout(playBeep, 200);
+                        lastBeepCount = totalBeepsExpected;
+                    }
+                }
+            } else {
+                // Not due anymore
+                beepStartTime = null;
+                lastBeepCount = 0;
+            }
+        }
+
+        // --- CORE LOGIC ---
+
+        function getNow() {
+            return new Date(Date.now() + state.data.timeOffset);
+        }
+
+        function saveState() {
+            localStorage.setItem('pillTrackerState', JSON.stringify(state));
+            updateUI();
+        }
+
+        function pushHistory() {
+            // limit history stack to 5
+            if (state.history.length > 5) state.history.shift();
+            // Deep copy current data to history
+            state.history.push(JSON.parse(JSON.stringify(state.data)));
+        }
+
+        function undoLastAction() {
+            if (state.history.length === 0) return;
+            state.data = state.history.pop();
+            saveState();
+        }
+
+        function calculateSchedule() {
+            const now = getNow();
+            const s = state.settings;
+            const d = state.data;
+
+            // If we haven't started yet, interval is standard
+            if (d.dosesTaken === 0) {
+                d.currentInterval = s.standardInterval;
+                d.nextDoseScheduled = null; // Next dose is NOW (whenever he clicks)
+                d.effectiveTotalDoses = s.totalDoses; // Reset to default
+                return;
+            }
+
+            // Logic: We have taken at least 1 pill.
+            // Remaining doses needed
+            let dosesRemaining = s.totalDoses - d.dosesTaken;
+            
+            if (dosesRemaining <= 0) {
+                d.dayCompleted = true;
+                return;
+            }
+
+            // Create a date object for the Target End Time (Today at Hour N)
+            let endTimeDate = new Date(d.firstDoseTime); 
+            endTimeDate.setHours(s.endHour, 0, 0, 0);
+
+            // Time remaining until the hard stop
+            // NOTE: We calculate from LAST DOSE TIME. 
+            let timeRemainingMs = endTimeDate.getTime() - d.lastDoseTime;
+            let timeRemainingHours = timeRemainingMs / (1000 * 60 * 60);
+
+            // Try to fit remaining doses
+            let proposedInterval = s.standardInterval;
+            
+            let fits = false;
+            while(proposedInterval >= s.minInterval) {
+                if (proposedInterval * dosesRemaining <= timeRemainingHours) {
+                    fits = true;
+                    break;
+                }
+                proposedInterval -= s.step;
+            }
+
+            if (fits) {
+                d.currentInterval = proposedInterval;
+                d.effectiveTotalDoses = s.totalDoses;
+            } else {
+                // If it doesn't fit even at min interval, we must drop a dose
+                d.currentInterval = s.minInterval;
+                
+                // Calculate capacity: how many intervals of 'minInterval' fit in 'timeRemaining'?
+                let maxFutureDoses = Math.floor(timeRemainingHours / s.minInterval);
+                
+                // Effective total is what we have taken + what we CAN take
+                let newTotal = d.dosesTaken + maxFutureDoses;
+                
+                // Clamp it so it doesn't exceed original total (though 'fits' check handles that)
+                // and doesn't drop below taken (impossible unless time travel)
+                d.effectiveTotalDoses = Math.min(newTotal, s.totalDoses);
+            }
+
+            // Set next dose time
+            let baseNext = d.lastDoseTime + (d.currentInterval * 60 * 60 * 1000);
+            
+            if (!d.nextDoseScheduled || d.nextDoseScheduled < d.lastDoseTime) {
+                d.nextDoseScheduled = baseNext;
+            }
+        }
+
+        function takePill() {
+            pushHistory();
+            const now = getNow();
+            const d = state.data;
+
+            // 1. Record Time
+            d.lastDoseTime = now.getTime();
+            
+            // 2. If first dose, set start of day
+            if (d.dosesTaken === 0) {
+                d.firstDoseTime = now.getTime();
+            }
+
+            // 3. Increment Count
+            d.dosesTaken++;
+
+            // 4. Reset Snoozes for next round
+            d.snoozesUsedForCurrent = 0;
+
+            // 5. Calculate Schedule for remaining
+            calculateSchedule();
+
+            saveState();
+            
+            // Check for completion based on EFFECTIVE total
+            // Use effectiveTotalDoses unless it's unset (old state)
+            const target = d.effectiveTotalDoses || state.settings.totalDoses;
+            if (d.dosesTaken >= target) {
+                document.getElementById('congrats-overlay').classList.remove('hidden');
+            }
+        }
+
+        function snooze() {
+            pushHistory();
+            const d = state.data;
+            if (d.snoozesUsedForCurrent >= 4) return;
+
+            d.snoozesUsedForCurrent++;
+            // Add 15 mins (15 * 60 * 1000)
+            d.nextDoseScheduled += (15 * 60 * 1000);
+            
+            saveState();
+        }
+
+        function checkReset() {
+            const now = getNow();
+            // Reset at 12am (00:00)
+            // Check if first dose time was "yesterday"
+            if (state.data.firstDoseTime) {
+                const doseDate = new Date(state.data.firstDoseTime);
+                if (now.getDate() !== doseDate.getDate()) {
+                    manualResetDay();
+                }
+            }
+        }
+
+        function manualResetDay() {
+            state.data = JSON.parse(JSON.stringify(DEFAULT_STATE.data));
+            // Keep time offset though
+            const oldOffset = JSON.parse(localStorage.getItem('pillTrackerState'))?.data?.timeOffset || 0;
+            state.data.timeOffset = oldOffset;
+            
+            document.getElementById('congrats-overlay').classList.add('hidden');
+            saveState();
+        }
+
+        function dismissCongrats() {
+            document.getElementById('congrats-overlay').classList.add('hidden');
+        }
+
+        // --- SETTINGS LOGIC ---
+        function toggleSettings() {
+            const el = document.getElementById('settings-overlay');
+            el.classList.toggle('hidden');
+            if(!el.classList.contains('hidden')) {
+                // Populate inputs
+                document.getElementById('set-doses').value = state.settings.totalDoses;
+                // Convert endHour to HH:00 format for time input
+                const endTimeStr = String(state.settings.endHour).padStart(2, '0') + ':00';
+                document.getElementById('set-endtime').value = endTimeStr;
+                document.getElementById('set-interval').value = state.settings.standardInterval;
+                document.getElementById('set-min-interval').value = state.settings.minInterval;
+                document.getElementById('set-step').value = state.settings.step;
+                document.getElementById('set-beep-interval-1').value = state.settings.beepInterval1 || 1;
+                document.getElementById('set-beep-interval-2').value = state.settings.beepInterval2 || 30;
+            }
+        }
+
+        function saveSettings() {
+            state.settings.totalDoses = parseInt(document.getElementById('set-doses').value);
+            // Extract hour from HH:MM format
+            const endTimeInput = document.getElementById('set-endtime').value; // HH:MM
+            const [endHour] = endTimeInput.split(':');
+            state.settings.endHour = parseInt(endHour);
+            state.settings.standardInterval = parseFloat(document.getElementById('set-interval').value);
+            state.settings.minInterval = parseFloat(document.getElementById('set-min-interval').value);
+            state.settings.step = parseFloat(document.getElementById('set-step').value);
+            state.settings.beepInterval1 = parseInt(document.getElementById('set-beep-interval-1').value) || 2;
+            state.settings.beepInterval2 = parseInt(document.getElementById('set-beep-interval-2').value) || 30;
+            
+            // Reset effective total temporarily so calculateSchedule can re-evaluate
+            state.data.effectiveTotalDoses = state.settings.totalDoses;
+
+            // Recalculate if in middle of day
+            if (state.data.dosesTaken > 0) calculateSchedule();
+            
+            toggleSettings();
+            saveState();
+        }
+
+        function applyTimeOffset() {
+            const input = document.getElementById('set-time-input').value; // HH:MM
+            if (!input) return;
+            const [h, m] = input.split(':');
+            
+            const nowReal = new Date();
+            const desired = new Date();
+            desired.setHours(h, m, 0, 0);
+            
+            state.data.timeOffset = desired.getTime() - nowReal.getTime();
+            saveState();
+        }
+
+        function clearTimeOffset() {
+            state.data.timeOffset = 0;
+            saveState();
+        }
+
+        function hardReset() {
+            if(confirm("Erase all data completely?")) {
+                localStorage.removeItem('pillTrackerState');
+                location.reload();
+            }
+        }
+
+        // --- UI UPDATER (The Heartbeat) ---
+        function updateUI() {
+            const now = getNow();
+            const d = state.data;
+            const s = state.settings;
+
+            // 1. Clock
+            document.getElementById('clock-display').innerText = now.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+            document.getElementById('date-display').innerText = now.toLocaleDateString([], {weekday: 'long', month: 'long', day: 'numeric'});
+
+            // 2. Info Grid
+            document.getElementById('interval-display').innerText = d.currentInterval + "h";
+            const intervalBadgeEl = document.getElementById('reduced-interval-badge');
+            if (d.currentInterval < s.standardInterval) {
+                intervalBadgeEl.classList.remove('hidden');
+                document.getElementById('interval-display').classList.add('text-red-400');
+            } else {
+                intervalBadgeEl.classList.add('hidden');
+                document.getElementById('interval-display').classList.remove('text-red-400');
+            }
+            
+            // Doses Display Logic
+            const effectiveTotal = d.effectiveTotalDoses || s.totalDoses;
+            const displayEl = document.getElementById('doses-display');
+            const badgeEl = document.getElementById('reduced-badge');
+            
+            if (effectiveTotal < s.totalDoses) {
+                displayEl.innerText = `${d.dosesTaken} / ${effectiveTotal}`;
+                displayEl.classList.add('text-red-400');
+                badgeEl.classList.remove('hidden');
+                badgeEl.innerText = "Reduced (Time)";
+            } else {
+                displayEl.innerText = `${d.dosesTaken} / ${s.totalDoses}`;
+                displayEl.classList.remove('text-red-400');
+                badgeEl.classList.add('hidden');
+            }
+            
+            let endDisp = s.endHour + ":00";
+            if(s.endHour > 12) endDisp = (s.endHour - 12) + ":00 PM";
+            document.getElementById('target-end-display').innerText = endDisp;
+
+            // 3. Next Dose Calculation & Button State
+            const btnTake = document.getElementById('btn-take');
+            const btnSnooze = document.getElementById('btn-snooze');
+            const nextDoseDisp = document.getElementById('next-dose-display');
+            const nextEatDisp = document.getElementById('next-eat-display');
+            const eatPanel = document.getElementById('eating-panel');
+            const eatText = document.getElementById('eat-status-text');
+            const eatTimer = document.getElementById('eat-timer-text');
+            const oneHour = 60 * 60 * 1000;
+
+            if (d.dosesTaken === 0) {
+                // Not started yet
+                nextDoseDisp.innerText = "Ready to Start";
+                nextDoseDisp.classList.remove('text-yellow-400');
+                nextDoseDisp.classList.add('text-emerald-400');
+                nextEatDisp.innerText = "--:--";
+                nextEatDisp.classList.remove('text-emerald-400', 'text-red-400');
+                nextEatDisp.classList.add('text-slate-500');
+                
+                btnTake.disabled = false;
+                btnTake.innerText = "Take First Pill";
+                btnTake.classList.remove('bg-slate-600', 'pulse-btn', 'bg-red-600');
+                btnTake.classList.add('bg-emerald-600');
+                
+                btnSnooze.disabled = true;
+                btnSnooze.innerHTML = `
+                    <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
+                    <div class="text-sm opacity-80 font-normal">Not active yet</div>
+                `;
+
+                // Eating: Always allowed before start? Assuming yes until 1h before first pill... 
+                // but we don't know when first pill is until he hits it. So Eat is GREEN.
+                eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600";
+                eatText.innerText = "You Can Eat";
+                eatTimer.innerText = "Timer starts after first pill";
+
+            } else if (d.dosesTaken >= effectiveTotal) {
+                // Done
+                nextDoseDisp.innerText = "Done for today";
+                nextDoseDisp.classList.remove('text-emerald-400');
+                nextDoseDisp.classList.add('text-yellow-400');
+                
+                // Show when can eat next (1h after last pill)
+                let timeSinceLast = now.getTime() - d.lastDoseTime;
+                if (timeSinceLast < oneHour) {
+                    let nextEatTime = new Date(d.lastDoseTime + oneHour);
+                    nextEatDisp.innerText = nextEatTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    nextEatDisp.classList.remove('text-slate-500');
+                    nextEatDisp.classList.add('text-red-400');
+                } else {
+                    nextEatDisp.innerText = "Now";
+                    nextEatDisp.classList.remove('text-slate-500', 'text-red-400');
+                    nextEatDisp.classList.add('text-emerald-400');
+                }
+                btnTake.disabled = true;
+                btnTake.innerText = "Finished";
+                btnTake.classList.remove('pulse-btn', 'bg-emerald-600', 'bg-slate-600', 'bg-red-600');
+                btnTake.classList.add('bg-slate-700', 'text-slate-500');
+                
+                btnSnooze.disabled = true;
+                btnSnooze.innerHTML = `
+                    <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
+                    <div class="text-sm opacity-80 font-normal">All done</div>
+                `;
+                
+                // Eat Check (1 hr after last pill)
+                timeSinceLast = now.getTime() - d.lastDoseTime;
+                
+                if (timeSinceLast < oneHour) {
+                    eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-red-600";
+                    eatText.innerText = "Do Not Eat";
+                    let minsLeft = Math.ceil((oneHour - timeSinceLast) / 60000);
+                    eatTimer.innerText = `Wait ${minsLeft} mins`;
+                } else {
+                    eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600";
+                    eatText.innerText = "You Can Eat";
+                    eatTimer.innerText = "All clear";
+                }
+
+            } else {
+                // In Progress
+                let dueTime = new Date(d.nextDoseScheduled);
+                nextDoseDisp.innerText = dueTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                nextDoseDisp.classList.add('text-yellow-400');
+                
+                // Calculate next eat time
+                timeSinceLast = now.getTime() - d.lastDoseTime;
+                timeUntilNext = d.nextDoseScheduled - now.getTime();
+
+                // Next eat is either 1h after last dose or 1h before next dose, whichever comes first
+                let nextEatTime = new Date(d.lastDoseTime + oneHour);
+                let stopEatTime = new Date(d.nextDoseScheduled - oneHour);
+                
+                if (timeSinceLast < oneHour) {
+                    // Still in post-pill zone, can't eat
+                    nextEatDisp.innerText = nextEatTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    nextEatDisp.classList.remove('text-emerald-400', 'text-slate-500');
+                    nextEatDisp.classList.add('text-red-400');
+                } else if (timeUntilNext < oneHour && timeUntilNext > 0) {
+                    // In pre-pill zone, can't eat - show same as next dose
+                    nextEatDisp.innerText = dueTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    nextEatDisp.classList.remove('text-emerald-400', 'text-slate-500');
+                    nextEatDisp.classList.add('text-red-400');
+                } else {
+                    // Can eat now
+                    let forbiddenStart = d.nextDoseScheduled - oneHour;
+                    nextEatDisp.innerText = forbiddenStart.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    nextEatDisp.classList.remove('text-red-400', 'text-slate-500');
+                    nextEatDisp.classList.add('text-emerald-400');
+                }
+
+                // Button Logic
+                if (now >= dueTime) {
+                    // DUE NOW
+                    btnTake.disabled = false;
+                    btnTake.innerText = "TAKE PILL";
+                    btnTake.classList.remove('bg-emerald-600', 'bg-slate-600', 'bg-slate-700', 'text-slate-500');
+                    btnTake.classList.add('pulse-btn', 'bg-red-600');
+                    
+                    // Disable snooze when pill is due
+                    btnSnooze.disabled = true;
+                    btnSnooze.innerHTML = `
+                        <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
+                        <div class="text-sm opacity-80 font-normal">Take pill first!</div>
+                    `;
+                } else {
+                    // WAITING
+                    btnTake.disabled = true;
+                    // Calculate time left
+                    let diffMins = Math.ceil((dueTime - now) / 60000);
+                    let hours = Math.floor(diffMins / 60);
+                    let mins = diffMins % 60;
+                    btnTake.innerText = `Wait ${hours}h ${mins}m`;
+                    btnTake.classList.remove('pulse-btn', 'bg-red-600', 'bg-emerald-600', 'bg-slate-700', 'text-slate-500');
+                    btnTake.classList.add('bg-slate-600');
+
+                    // Snooze Logic - Enable snoozing when waiting
+                    if (d.snoozesUsedForCurrent >= 4) {
+                        btnSnooze.disabled = true;
+                        btnSnooze.innerHTML = `
+                            <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
+                            <div class="text-sm opacity-80 font-normal">No snoozes left</div>
+                        `;
+                    } else {
+                        btnSnooze.disabled = false;
+                        btnSnooze.innerHTML = `
+                            <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
+                            <div class="text-sm opacity-80 font-normal">${4 - d.snoozesUsedForCurrent} left for this dose</div>
+                        `;
+                    }
+                }
+
+                // Eating Logic
+                // Forbidden: 1h after Last Dose OR 1h before Next Dose
+                let isForbidden = false;
+                let reason = "";
+
+                if (timeSinceLast < oneHour) {
+                    isForbidden = true;
+                    let m = Math.ceil((oneHour - timeSinceLast)/60000);
+                    reason = `Wait ${m}m (Post-pill)`;
+                } else if (timeUntilNext < oneHour && timeUntilNext > 0) {
+                    isForbidden = true;
+                    let m = Math.ceil(timeUntilNext/60000); // Actually, we stop 1h BEFORE. 
+                    reason = `Stop Eating (Pre-pill)`;
+                }
+
+                if (isForbidden) {
+                    eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-red-600";
+                    eatText.innerText = "Do Not Eat";
+                    eatTimer.innerText = reason;
+                } else {
+                    eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600";
+                    eatText.innerText = "You Can Eat";
+                    
+                    // Show when next forbidden zone starts
+                    // It starts 1h before next dose
+                    let forbiddenStart = d.nextDoseScheduled - oneHour;
+                    let minsUntilForbidden = Math.ceil((forbiddenStart - now.getTime()) / 60000);
+                    
+                    if (minsUntilForbidden > 0) {
+                        let h = Math.floor(minsUntilForbidden / 60);
+                        let m = minsUntilForbidden % 60;
+                        eatTimer.innerText = `You have ${h}h ${m}m left`;
+                    } else {
+                        // Should technically be caught by logic above, but fallback
+                        eatTimer.innerText = "Almost time to stop";
+                    }
+                }
+            }
+        }
+
+        // Initialize
+        checkReset();
+        updateUI();
+        setInterval(() => {
+            checkReset();
+            updateUI();
+            handleBeeping();
+        }, 500); // Check beeping twice per second for responsive audio
+
+    </script>
+</body>
+</html>

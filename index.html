@@ -145,7 +145,7 @@
                     <span class="text-slate-300 text-sm">Caregiver Options</span>
                 </button>
 
-                <button onclick="confirmResetDay()" class="col-span-2 bg-red-700 p-3 rounded-lg hover:bg-red-600 transition-colors text-left">
+                <button id="btn-reset-day" onclick="confirmResetDay()" class="col-span-2 bg-red-700 p-3 rounded-lg hover:bg-red-600 transition-colors text-left">
                     <span class="text-sm block"><i class="fa-solid fa-exclamation mr-2"></i>Reset Day</span>
                     <span class="text-sm">Reset Day In Case Of Application Error</span>
                 </button>
@@ -157,7 +157,7 @@
         <div class="w-2/5 h-full flex flex-col bg-slate-800 p-4 gap-4">
             
             <!-- TAKE PILL BUTTON -->
-            <button id="btn-take" onclick="takePill()" disabled class="flex-grow rounded-3xl text-4xl font-bold uppercase tracking-widest shadow-lg transition-all disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none bg-slate-600">
+            <button id="btn-take" disabled class="flex-grow rounded-3xl text-4xl font-bold uppercase tracking-widest shadow-lg transition-all disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none bg-slate-600">
                 Wait
             </button>
 
@@ -168,7 +168,7 @@
             </button>
 
             <!-- UNDO BUTTON -->
-            <button id="btn-undo" onclick="undoLastAction()" class="h-24 bg-orange-600 active:bg-orange-800 rounded-2xl text-xl font-semibold shadow-lg text-white">
+            <button id="btn-undo" onclick="undoLastAction()" class="h-24 bg-orange-600 active:bg-orange-800 rounded-2xl text-xl font-semibold shadow-lg text-white disabled:bg-slate-700 disabled:text-slate-500 transition-all">
                 <i class="fa-solid fa-rotate-left mr-2"></i> Undo Mistake
             </button>
         </div>
@@ -183,6 +183,16 @@
             </div>
             
             <div class="space-y-6">
+                <!-- Interval Mode Selection -->
+                <div class="bg-slate-800 p-4 rounded-lg">
+                    <label class="block text-slate-400 mb-2 font-bold">Interval Mode</label>
+                    <select id="set-interval-mode" onchange="updateSettingsVisibility()" class="bg-slate-900 p-3 rounded text-xl text-white w-full border border-slate-600">
+                        <option value="fixed">Fixed Interval (Simple)</option>
+                        <option value="adaptive">Adaptive Interval (Auto-adjust)</option>
+                    </select>
+                    <p class="text-sm text-slate-500 mt-2">Fixed mode takes pills every X hours. Adaptive mode adjusts intervals to hit a target end time.</p>
+                </div>
+
                 <!-- Time Offset -->
                 <div class="bg-slate-800 p-4 rounded-lg">
                     <label class="block text-slate-400 mb-2">Override System Time (24h Format)</label>
@@ -194,28 +204,63 @@
                     <p class="text-sm text-slate-500 mt-2">Use this if the tablet time is wrong</p>
                 </div>
 
-                <!-- Parameters -->
+                <!-- Basic Parameters -->
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-slate-400">Target Doses</label>
                         <input type="number" id="set-doses" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="4">
                     </div>
                     <div>
-                        <label class="block text-slate-400">End Time (24h)</label>
-                        <input type="time" id="set-endtime" class="bg-slate-900 p-3 rounded text-xl text-white w-full border border-slate-600">
-                    </div>
-                    <div>
                         <label class="block text-slate-400">Standard Interval (h)</label>
                         <input type="number" id="set-interval" step="0.5" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="4">
                     </div>
-                    <div>
-                        <label class="block text-slate-400">Minimum Interval (h)</label>
-                        <input type="number" id="set-min-interval" step="0.5" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="2">
+                    <div class="col-span-2">
+                        <label class="flex items-center text-slate-400 mb-2">
+                            <input type="checkbox" id="set-use-endtime" onchange="updateSettingsVisibility()" class="mr-2 w-5 h-5">
+                            <span>Use Target End Time</span>
+                        </label>
+                        <input type="time" id="set-endtime" class="bg-slate-900 p-3 rounded text-xl text-white w-full border border-slate-600" disabled>
+                        <p class="text-sm text-slate-500 mt-1">If disabled, pills are taken at fixed intervals with no end time constraint</p>
                     </div>
-                    <div>
-                        <label class="block text-slate-400">Reduction Step (h)</label>
-                        <input type="number" id="set-step" step="0.25" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="0.5">
+                </div>
+
+                <!-- Adaptive Mode Settings (shown only in adaptive mode) -->
+                <div id="adaptive-settings-section" class="hidden">
+                    <div class="bg-slate-800 p-4 rounded-lg">
+                        <label class="block text-slate-400 mb-3 font-bold">Adaptive Mode Settings</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-slate-400 text-sm">Minimum Interval (h)</label>
+                                <input type="number" id="set-min-interval" step="0.5" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="2">
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 text-sm">Reduction Step (h)</label>
+                                <input type="number" id="set-step" step="0.25" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="0.5">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="flex items-center text-slate-400 mb-2">
+                                    <input type="checkbox" id="set-allow-dose-reduction" onchange="updateSettingsVisibility()" class="mr-2 w-5 h-5" checked>
+                                    <span>Allow Dose Reduction (if can't fit all doses)</span>
+                                </label>
+                            </div>
+                            <div id="min-doses-row" class="col-span-2 hidden">
+                                <label class="block text-slate-400 text-sm">Minimum Doses (won't drop below)</label>
+                                <input type="number" id="set-min-doses" class="bg-slate-900 p-2 rounded text-white w-full border border-slate-600" value="4">
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Auto-Reset Settings -->
+                <div class="bg-slate-800 p-4 rounded-lg">
+                    <label class="block text-slate-400 mb-3 font-bold">Auto Day Reset</label>
+                    <label class="flex items-center text-slate-400 mb-3">
+                        <input type="checkbox" id="set-auto-reset-enabled" onchange="updateSettingsVisibility()" class="mr-2 w-5 h-5">
+                        <span>Automatically reset day at specific time</span>
+                    </label>
+                    <label class="block text-slate-400 text-sm mb-2">Reset Time</label>
+                    <input type="time" id="set-reset-hour" class="bg-slate-900 p-3 rounded text-xl text-white w-full border border-slate-600" disabled>
+                    <p class="text-sm text-slate-500 mt-2">If disabled, you'll need to manually reset when pills are done (button will turn red)</p>
                 </div>
 
                 <!-- Beep Settings -->

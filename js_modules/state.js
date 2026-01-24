@@ -5,11 +5,26 @@
 
 export const DEFAULT_STATE = {
     settings: {
+        // Mode settings
+        intervalMode: 'fixed', // 'fixed' or 'adaptive'
+        
+        // Basic settings
         totalDoses: 4,
         endHour: 22,
+        useEndTime: false, // If false, no end time constraint
         standardInterval: 4,
+        
+        // Adaptive mode settings (hidden when intervalMode === 'fixed')
         minInterval: 2,
         step: 0.5,
+        allowDoseReduction: true, // If false, won't drop doses
+        minDoses: 4, // Minimum doses to take (only used if allowDoseReduction is true)
+        
+        // Auto-reset settings
+        autoResetEnabled: false, // Whether to automatically reset the day
+        autoResetHour: 0, // Hour (0-23) to automatically reset the day
+        
+        // Beep settings
         beepInterval1: 1,  // First minute: beep every N seconds
         beepInterval2: 30  // After 1 minute: beep every N seconds
     },
@@ -48,10 +63,31 @@ export function pushHistory() {
     state.history.push(JSON.parse(JSON.stringify(state.data)));
 }
 
+let undoDebounce = false;
 export function undoLastAction() {
+    if (undoDebounce) return;
     if (state.history.length === 0) return;
+    
+    undoDebounce = true;
+    
+    // Disable button temporarily
+    const btnUndo = document.getElementById('btn-undo');
+    if (btnUndo) {
+        btnUndo.disabled = true;
+        btnUndo.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
     state.data = state.history.pop();
     saveState();
+    
+    // Re-enable after 1.5 seconds
+    setTimeout(() => {
+        undoDebounce = false;
+        if (btnUndo) {
+            btnUndo.disabled = false;
+            btnUndo.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }, 1500);
 }
 
 export function getNow() {

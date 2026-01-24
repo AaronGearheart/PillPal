@@ -32,27 +32,67 @@ export function takePill() {
     saveState();
 }
 
+let snoozeDebounce = false;
 export function snooze() {
+    if (snoozeDebounce) return;
+    snoozeDebounce = true;
+    
+    // Disable button temporarily
+    const btnSnooze = document.getElementById('btn-snooze');
+    if (btnSnooze) {
+        btnSnooze.disabled = true;
+        btnSnooze.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
     pushHistory();
     const state = getState();
     const d = state.data;
-    if (d.snoozesUsedForCurrent >= 4) return;
+    if (d.snoozesUsedForCurrent >= 4) {
+        snoozeDebounce = false;
+        if (btnSnooze) {
+            btnSnooze.disabled = false;
+            btnSnooze.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        return;
+    }
 
     d.snoozesUsedForCurrent++;
     // Add 15 mins (15 * 60 * 1000)
     d.nextDoseScheduled += (15 * 60 * 1000);
     
     saveState();
+    
+    // Re-enable after 1.5 seconds
+    setTimeout(() => {
+        snoozeDebounce = false;
+        if (btnSnooze) {
+            btnSnooze.disabled = false;
+            btnSnooze.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }, 1500);
 }
 
 export function checkReset() {
     const now = getNow();
     const state = getState();
-    // Reset at 12am (00:00)
-    // Check if first dose time was "yesterday"
+    
+    // Only auto-reset if enabled
+    if (!state.settings.autoResetEnabled) return;
+    
+    const resetHour = state.settings.autoResetHour || 0;
+    
+    // Check if first dose time was before the reset hour today
     if (state.data.firstDoseTime) {
         const doseDate = new Date(state.data.firstDoseTime);
-        if (now.getDate() !== doseDate.getDate()) {
+        const resetTimeToday = new Date(now);
+        resetTimeToday.setHours(resetHour, 0, 0, 0);
+        
+        // If current time is past reset hour, and dose was taken before reset hour today,
+        // or dose was taken on a different day, reset
+        if (now >= resetTimeToday && doseDate < resetTimeToday) {
+            manualResetDay();
+        } else if (now.getDate() !== doseDate.getDate()) {
+            // Different day entirely
             manualResetDay();
         }
     }
@@ -73,5 +113,16 @@ export function confirmResetDay() {
         const ok = window.confirm('Reset day? This will clear doses taken for today. Proceed?');
         if (!ok) return;
     }
+    manualResetDay();
+}
+
+export function resetDayFromButton() {
+    
+    // Confirm with the user before resetting
+    if (typeof window !== 'undefined' && window.confirm) {
+        const ok = window.confirm('Start a new day? This will reset all doses. Proceed?');
+        if (!ok) return;
+    }
+    
     manualResetDay();
 }

@@ -27,7 +27,8 @@ export function updateUI() {
     }
     
     // Doses Display Logic
-    const effectiveTotal = d.effectiveTotalDoses || s.totalDoses;
+    // In fixed interval mode, always use totalDoses; in adaptive, use effectiveTotalDoses
+    const effectiveTotal = s.intervalMode === 'fixed' ? s.totalDoses : (d.effectiveTotalDoses || s.totalDoses);
     const displayEl = document.getElementById('doses-display');
     const badgeEl = document.getElementById('reduced-badge');
     
@@ -44,6 +45,12 @@ export function updateUI() {
     
     let endDisp = s.endHour + ":00";
     if(s.endHour > 12) endDisp = (s.endHour - 12) + ":00 PM";
+    
+    // Show "N/A" if end time is disabled
+    if (!s.useEndTime) {
+        endDisp = "N/A (Disabled)";
+    }
+    
     document.getElementById('target-end-display').innerText = endDisp;
 
     // 3. Next Dose Calculation & Button State
@@ -69,6 +76,7 @@ export function updateUI() {
         btnTake.innerText = "Take First Pill";
         btnTake.classList.remove('bg-slate-600', 'pulse-btn', 'bg-red-600');
         btnTake.classList.add('bg-emerald-600');
+        btnTake.dataset.action = 'pill';
         
         btnSnooze.disabled = true;
         btnSnooze.innerHTML = `
@@ -100,10 +108,20 @@ export function updateUI() {
             nextEatDisp.classList.remove('text-slate-500', 'text-red-400');
             nextEatDisp.classList.add('text-emerald-400');
         }
-        btnTake.disabled = true;
-        btnTake.innerText = "ALL PILLS FINISHED";
-        btnTake.classList.remove('bg-slate-600', 'pulse-btn', 'bg-red-600');
-        btnTake.classList.add('bg-emerald-600');
+        // If auto-reset is disabled, make button clickable to reset
+        if (!s.autoResetEnabled) {
+            btnTake.disabled = false;
+            btnTake.innerText = "RESET DAY?";
+            btnTake.classList.remove('bg-slate-600', 'bg-emerald-600');
+            btnTake.classList.add('pulse-btn', 'bg-red-600');
+            btnTake.dataset.action = 'reset'; // Use data attribute to track action
+        } else {
+            btnTake.disabled = true;
+            btnTake.innerText = "ALL PILLS FINISHED";
+            btnTake.classList.remove('bg-slate-600', 'pulse-btn', 'bg-red-600');
+            btnTake.classList.add('bg-emerald-600');
+            btnTake.dataset.action = 'none';
+        }
         
         btnSnooze.disabled = true;
         btnSnooze.innerHTML = `
@@ -124,6 +142,9 @@ export function updateUI() {
             eatText.innerText = "You Can Eat";
             eatTimer.innerText = "All clear";
         }
+        
+        // Update Reset Day button if auto-reset is disabled
+        updateResetDayButton(s.autoResetEnabled, true);
 
     } else {
         // In Progress
@@ -164,6 +185,7 @@ export function updateUI() {
             btnTake.innerText = "TAKE PILL";
             btnTake.classList.remove('bg-emerald-600', 'bg-slate-600', 'bg-slate-700', 'text-slate-500');
             btnTake.classList.add('pulse-btn', 'bg-red-600');
+            btnTake.dataset.action = 'pill';
             
             // Allow snoozing even when pill is due
             if (d.snoozesUsedForCurrent >= 4) {
@@ -189,6 +211,7 @@ export function updateUI() {
             btnTake.innerText = `Wait ${hours}h ${mins}m`;
             btnTake.classList.remove('pulse-btn', 'bg-red-600', 'bg-emerald-600', 'bg-slate-700', 'text-slate-500');
             btnTake.classList.add('bg-slate-600');
+            btnTake.dataset.action = 'none';
 
             // Snooze Logic - Enable snoozing when waiting
             if (d.snoozesUsedForCurrent >= 4) {
@@ -244,6 +267,10 @@ export function updateUI() {
             }
         }
     }
+    
+    // Update Reset Day button based on state and settings
+    const isDayCompleted = d.dosesTaken >= effectiveTotal;
+    updateResetDayButton(s.autoResetEnabled, isDayCompleted);
 }
 
 export function updateLoadingText(newText) {
@@ -251,4 +278,17 @@ export function updateLoadingText(newText) {
     if (splashText) {
         splashText.innerText = newText;
     }
+}
+
+function updateResetDayButton(autoResetEnabled, isDayCompleted) {
+    const resetBtn = document.getElementById('btn-reset-day');
+    if (!resetBtn) return;
+    
+    // Always keep it as normal state - main button handles day completion reset
+    resetBtn.classList.remove('bg-red-600', 'hover:bg-red-500', 'pulse-btn');
+    resetBtn.classList.add('bg-red-700', 'hover:bg-red-600');
+    resetBtn.innerHTML = `
+        <span class="text-sm block"><i class="fa-solid fa-exclamation mr-2"></i>Reset Day</span>
+        <span class="text-sm">Reset Day In Case Of Application Error</span>
+    `;
 }

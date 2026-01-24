@@ -3,26 +3,34 @@
  * Initializes and coordinates all modules
  */
 
-import { saveState, undoLastAction } from './state.js';
+import { getState, saveState, undoLastAction } from './state.js';
 import { handleBeeping } from './audio.js';
 import { runWatchdog } from './watchdog.js';
-import { takePill, snooze, checkReset, manualResetDay, confirmResetDay } from './actions.js';
-import { toggleSettings, saveSettings, applyTimeOffset, clearTimeOffset, hardReset } from './settings.js';
+import { takePill, snooze, checkReset, manualResetDay, confirmResetDay, resetDayFromButton } from './actions.js';
+import { toggleSettings, saveSettings, applyTimeOffset, clearTimeOffset, hardReset, updateSettingsVisibility } from './settings.js';
 import { updateUI, updateLoadingText } from './ui.js';
 
 // Export functions to global scope for HTML onclick handlers
-window.takePill = takePill;
-window.snooze = snooze;
+window.takePill = () => {
+    takePill();
+    updateUI();
+};
+window.snooze = () => {
+    snooze();
+    updateUI();
+};
 window.undoLastAction = () => {
     undoLastAction();
     updateUI();
 };
 window.manualResetDay = manualResetDay;
 window.confirmResetDay = confirmResetDay;
+window.resetDayFromButton = resetDayFromButton;
 window.toggleSettings = toggleSettings;
 window.saveSettings = () => {
     saveSettings();
-    updateUI();
+    // Immediate UI update to sync button state with new settings
+    setTimeout(() => updateUI(), 10);
 };
 window.applyTimeOffset = () => {
     applyTimeOffset();
@@ -34,9 +42,30 @@ window.clearTimeOffset = () => {
 };
 window.hardReset = hardReset;
 window.updateLoadingText = updateLoadingText;
+window.updateSettingsVisibility = updateSettingsVisibility;
 
 // Initialize application
 export function initializeApp() {
+    // Add single click handler for take pill button
+    const btnTake = document.getElementById('btn-take');
+    if (btnTake) {
+        btnTake.addEventListener('click', function() {
+            const action = this.dataset.action;
+            // Safety check: Don't allow taking pill if day is complete
+            if (action === 'pill') {
+                const state = getState();
+                const effectiveTotal = state.data.effectiveTotalDoses || state.settings.totalDoses;
+                // Only allow if we haven't reached the limit
+                if (state.data.dosesTaken < effectiveTotal) {
+                    takePill();
+                    updateUI();
+                }
+            } else if (action === 'reset') {
+                resetDayFromButton();
+            }
+        });
+    }
+    
     // Run watchdog on startup to verify state integrity
     runWatchdog();
     checkReset();

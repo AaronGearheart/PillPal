@@ -28,6 +28,17 @@ export function calculateSchedule() {
         return;
     }
 
+    // FIXED INTERVAL MODE: Just use the standard interval always
+    if (s.intervalMode === 'fixed' || !s.useEndTime) {
+        d.currentInterval = s.standardInterval;
+        d.effectiveTotalDoses = s.totalDoses;
+        
+        // Set next dose time based on last dose + interval
+        d.nextDoseScheduled = d.lastDoseTime + (d.currentInterval * 60 * 60 * 1000);
+        return;
+    }
+
+    // ADAPTIVE INTERVAL MODE: Original logic
     // Create a date object for the Target End Time (Today at Hour N)
     let endTimeDate = new Date(d.firstDoseTime); 
     endTimeDate.setHours(s.endHour, 0, 0, 0);
@@ -56,15 +67,22 @@ export function calculateSchedule() {
         // If it doesn't fit even at min interval, we must drop a dose
         d.currentInterval = s.minInterval;
         
-        // Calculate capacity: how many intervals of 'minInterval' fit in 'timeRemaining'?
-        let maxFutureDoses = Math.floor(timeRemainingHours / s.minInterval);
-        
-        // Effective total is what we have taken + what we CAN take
-        let newTotal = d.dosesTaken + maxFutureDoses;
-        
-        // Clamp it so it doesn't exceed original total (though 'fits' check handles that)
-        // and doesn't drop below taken (impossible unless time travel)
-        d.effectiveTotalDoses = Math.min(newTotal, s.totalDoses);
+        if (s.allowDoseReduction) {
+            // Calculate capacity: how many intervals of 'minInterval' fit in 'timeRemaining'?
+            let maxFutureDoses = Math.floor(timeRemainingHours / s.minInterval);
+            
+            // Effective total is what we have taken + what we CAN take
+            let newTotal = d.dosesTaken + maxFutureDoses;
+            
+            // Respect minimum doses setting
+            newTotal = Math.max(newTotal, s.minDoses || 0);
+            
+            // Clamp it so it doesn't exceed original total
+            d.effectiveTotalDoses = Math.min(newTotal, s.totalDoses);
+        } else {
+            // Don't allow dose reduction - keep trying at min interval
+            d.effectiveTotalDoses = s.totalDoses;
+        }
     }
 
     // Set next dose time based on last dose + interval

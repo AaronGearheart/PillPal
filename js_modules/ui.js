@@ -65,7 +65,7 @@ export function updateUI() {
 
     if (d.dosesTaken === 0) {
         // Not started yet
-        nextDoseDisp.innerText = "Ready to Start";
+        nextDoseDisp.innerText = "--:--";
         nextDoseDisp.classList.remove('text-yellow-400');
         nextDoseDisp.classList.add('text-emerald-400');
         nextEatDisp.innerText = "--:--";
@@ -80,12 +80,9 @@ export function updateUI() {
         
         btnSnooze.disabled = true;
         btnSnooze.innerHTML = `
-            <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
-            <div class="text-sm opacity-80 font-normal">Not active yet</div>
+            <div><i class="fa-solid fa-bed mr-2"></i>4 Snoozes (15m)</div>
         `;
 
-        // Eating: Always allowed before start? Assuming yes until 1h before first pill... 
-        // but we don't know when first pill is until he hits it. So Eat is GREEN.
         eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600";
         eatText.innerText = "You Can Eat";
         eatTimer.innerText = "Timer starts after first pill";
@@ -99,14 +96,16 @@ export function updateUI() {
         // Show when can eat next (1h after last pill)
         let timeSinceLast = now.getTime() - d.lastDoseTime;
         if (timeSinceLast < oneHour) {
+            // Still in 1h post-pill restriction
             let nextEatTime = new Date(d.lastDoseTime + oneHour);
             nextEatDisp.innerText = nextEatTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-            nextEatDisp.classList.remove('text-slate-500');
+            nextEatDisp.classList.remove('text-slate-500', 'text-emerald-400');
             nextEatDisp.classList.add('text-red-400');
         } else {
-            nextEatDisp.innerText = "Now";
-            nextEatDisp.classList.remove('text-slate-500', 'text-red-400');
-            nextEatDisp.classList.add('text-emerald-400');
+            // Can eat now, no more doses today
+            nextEatDisp.innerText = "--:--";
+            nextEatDisp.classList.remove('text-red-400', 'text-emerald-400');
+            nextEatDisp.classList.add('text-slate-500');
         }
         // If auto-reset is disabled, make button clickable to reset
         if (!s.autoResetEnabled) {
@@ -125,8 +124,8 @@ export function updateUI() {
         
         btnSnooze.disabled = true;
         btnSnooze.innerHTML = `
-            <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
-            <div class="text-sm opacity-80 font-normal">All done</div>
+            <div><i class="fa-solid fa-bed mr-2"></i>4 Snoozes (15m)</div>
+            <div class="text-4xl opacity-80 font-normal">All done</div>
         `;
         
         // Eat Check (1 hr after last pill)
@@ -134,12 +133,12 @@ export function updateUI() {
         
         if (timeSinceLast < oneHour) {
             eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-red-600";
-            eatText.innerText = "Do Not Eat";
+            eatText.innerText = "No Protein";
             let minsLeft = Math.ceil((oneHour - timeSinceLast) / 60000);
             eatTimer.innerText = `Wait ${minsLeft} mins`;
         } else {
             eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600";
-            eatText.innerText = "You Can Eat";
+            eatText.innerText = "Yes Protein";
             eatTimer.innerText = "All clear";
         }
         
@@ -152,30 +151,33 @@ export function updateUI() {
         nextDoseDisp.innerText = dueTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
         nextDoseDisp.classList.add('text-yellow-400');
         
-        // Calculate next eat time
+        // Calculate next eat time based on restrictions:
+        // - Cannot eat for 1h AFTER taking a pill
+        // - Cannot eat for 1h BEFORE the next scheduled pill
         let timeSinceLast = now.getTime() - d.lastDoseTime;
         let timeUntilNext = d.nextDoseScheduled - now.getTime();
-
-        // Next eat is either 1h after last dose or 1h before next dose, whichever comes first
-        let nextEatTime = new Date(d.lastDoseTime + oneHour);
-        let stopEatTime = new Date(d.nextDoseScheduled - oneHour);
+        
+        let canEatAfterLast = new Date(d.lastDoseTime + oneHour); // 1h after last pill
+        let mustStopBeforeNext = new Date(d.nextDoseScheduled - oneHour); // 1h before next pill
         
         if (timeSinceLast < oneHour) {
-            // Still in post-pill zone, can't eat
-            nextEatDisp.innerText = nextEatTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+            // Still in 1h post-pill restriction, can't eat yet
+            // Show when the 1h post-pill window ends (but this might overlap with pre-pill restriction)
+            nextEatDisp.innerText = canEatAfterLast.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
             nextEatDisp.classList.remove('text-emerald-400', 'text-slate-500');
             nextEatDisp.classList.add('text-red-400');
-        } else if (timeUntilNext < oneHour && timeUntilNext > 0) {
-            // In pre-pill zone, can't eat - show same as next dose
-            nextEatDisp.innerText = dueTime.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+        } else if (timeUntilNext <= oneHour && timeUntilNext > 0) {
+            // In 1h pre-pill restriction zone, can't eat
+            // Show when can eat again (1h AFTER the next pill)
+            let canEatAfterNext = new Date(d.nextDoseScheduled + oneHour);
+            nextEatDisp.innerText = canEatAfterNext.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
             nextEatDisp.classList.remove('text-emerald-400', 'text-slate-500');
             nextEatDisp.classList.add('text-red-400');
         } else {
-            // Can eat now
-            let forbiddenStart = new Date(d.nextDoseScheduled - oneHour);
-            nextEatDisp.innerText = forbiddenStart.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-            nextEatDisp.classList.remove('text-red-400', 'text-slate-500');
-            nextEatDisp.classList.add('text-emerald-400');
+            // Can eat now! Clear the time
+            nextEatDisp.innerText = "--:--";
+            nextEatDisp.classList.remove('text-red-400', 'text-emerald-400');
+            nextEatDisp.classList.add('text-slate-500');
         }
 
         // Button Logic
@@ -191,14 +193,12 @@ export function updateUI() {
             if (d.snoozesUsedForCurrent >= 4) {
                 btnSnooze.disabled = true;
                 btnSnooze.innerHTML = `
-                    <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
-                    <div class="text-sm opacity-80 font-normal">No snoozes left</div>
+                    <div><i class="fa-solid fa-bed mr-2"></i>No Snoozes (15m)</div>
                 `;
             } else {
                 btnSnooze.disabled = false;
                 btnSnooze.innerHTML = `
-                    <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
-                    <div class="text-sm opacity-80 font-normal">${4 - d.snoozesUsedForCurrent} left for this dose</div>
+                    <div><i class="fa-solid fa-bed mr-2"></i>${4 - d.snoozesUsedForCurrent} Snoozes (15m)</div>
                 `;
             }
         } else {
@@ -217,14 +217,12 @@ export function updateUI() {
             if (d.snoozesUsedForCurrent >= 4) {
                 btnSnooze.disabled = true;
                 btnSnooze.innerHTML = `
-                    <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
-                    <div class="text-sm opacity-80 font-normal">No snoozes left</div>
+                    <div><i class="fa-solid fa-bed mr-2"></i>No Snoozes (15m)</div>
                 `;
             } else {
                 btnSnooze.disabled = false;
                 btnSnooze.innerHTML = `
-                    <div><i class="fa-solid fa-bed mr-2"></i>Snooze (+15m)</div>
-                    <div class="text-sm opacity-80 font-normal">${4 - d.snoozesUsedForCurrent} left for this dose</div>
+                    <div><i class="fa-solid fa-bed mr-2"></i>${4 - d.snoozesUsedForCurrent} Snoozes (15m)</div>
                 `;
             }
         }
@@ -240,17 +238,17 @@ export function updateUI() {
             reason = `Wait ${m}m (Post-pill)`;
         } else if (timeUntilNext < oneHour && timeUntilNext > 0) {
             isForbidden = true;
-            let m = Math.ceil(timeUntilNext/60000); // Actually, we stop 1h BEFORE. 
-            reason = `Stop Eating (Pre-pill)`;
+            let m = Math.ceil(timeUntilNext/60000);
+            reason = `Wait ${m}m (Pre-pill)`;
         }
 
         if (isForbidden) {
             eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-red-600";
-            eatText.innerText = "Do Not Eat";
+            eatText.innerText = "No Protein";
             eatTimer.innerText = reason;
         } else {
             eatPanel.className = "p-6 rounded-2xl mb-6 text-center transition-colors duration-500 bg-emerald-600";
-            eatText.innerText = "You Can Eat";
+            eatText.innerText = "Yes Protein";
             
             // Show when next forbidden zone starts
             // It starts 1h before next dose
@@ -263,7 +261,7 @@ export function updateUI() {
                 eatTimer.innerText = `You have ${h}h ${m}m left`;
             } else {
                 // Should technically be caught by logic above, but fallback
-                eatTimer.innerText = "Almost time to stop";
+                eatTimer.innerText = "All clear";
             }
         }
     }

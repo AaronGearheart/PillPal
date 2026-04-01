@@ -4,8 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PillPal</title>
-    <!-- Styles: Tailwind + FontAwesome solid (via Vite build) -->
-    <link rel="stylesheet" href="/src/main.css">
+    <!-- Styles: Tailwind CDN + FontAwesome CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css">
+    <style>
+        @keyframes pulse-red {
+            0%, 100% { background-color: #ef4444; box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.7); }
+            50% { background-color: #dc2626; box-shadow: 0 0 20px 10px rgba(239, 68, 68, 0); }
+        }
+        .pulse-btn { animation: pulse-red 2s infinite; }
+
+        @keyframes spinner-rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes fade-out {
+            0% { opacity: 1; }
+            99% { opacity: 1; }
+            100% { opacity: 0; pointer-events: none; }
+        }
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999;
+            animation: fade-out 0.5s ease-in-out 2s forwards;
+        }
+        .loading-spinner {
+            width: 80px; height: 80px;
+            border: 8px solid rgba(148, 163, 184, 0.3);
+            border-top: 8px solid #3b82f6;
+            border-radius: 50%;
+            animation: spinner-rotate 1s linear infinite;
+            margin-bottom: 40px;
+        }
+        .loading-text { font-size: 24px; font-weight: 600; color: #e2e8f0; text-align: center; margin-bottom: 20px; max-width: 80%; }
+        .loading-subtext { font-size: 14px; color: #94a3b8; text-align: center; }
+        body { user-select: none; touch-action: manipulation; overflow: hidden; }
+    </style>
     <!-- Main Application Module -->
     <script type="module" src="js_modules/app.js"></script>
 </head>
@@ -213,7 +249,7 @@
                 <div class="pt-6 text-center">
                     <button onclick="hardReset()" class="text-red-500 underline">Hard Reset (Wipe All Data)</button>
                 </div>
-                <div class="pt-4 text-center text-slate-500 text-sm">v1.6.3</div>
+                <div class="pt-4 text-center text-slate-500 text-sm">v1.6.4</div>
             </div>
         </div>
     </div>

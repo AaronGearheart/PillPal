@@ -91,7 +91,9 @@ export function checkReset() {
         // or dose was taken on a different day, reset
         if (now >= resetTimeToday && doseDate < resetTimeToday) {
             manualResetDay();
-        } else if (now.getDate() !== doseDate.getDate()) {
+        } else if (now.getFullYear() !== doseDate.getFullYear() ||
+                   now.getMonth() !== doseDate.getMonth() ||
+                   now.getDate() !== doseDate.getDate()) {
             // Different day entirely
             manualResetDay();
         }

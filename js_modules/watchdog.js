@@ -17,7 +17,10 @@ export function runWatchdog() {
     // 1. Verify day hasn't changed - if so, reset
     if (d.firstDoseTime) {
         const doseDate = new Date(d.firstDoseTime);
-        if (now.getDate() !== doseDate.getDate()) {
+        const dayChanged = now.getFullYear() !== doseDate.getFullYear() ||
+                           now.getMonth() !== doseDate.getMonth() ||
+                           now.getDate() !== doseDate.getDate();
+        if (dayChanged) {
             watchdogIssuesFound.push("Day changed - resetting state");
             manualResetDay();
             return; // Exit after reset

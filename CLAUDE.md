@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PillTracker is a single-page vanilla JavaScript web app for medication tracking. It uses **ES6 modules** with no build system—modules are imported directly in the browser.
+PillPal is a single-page vanilla JavaScript web app for medication tracking. It uses **ES6 modules** with no build system—modules are imported directly in the browser.
 
-**Key resources:** See [ARCHITECTURE.md](ARCHITECTURE.md) for the full module dependency graph and data flow. See [README.md](README.md) for module exports and responsibilities.
+**Note:** README.md is a public-facing project description. Module architecture and exports are documented inline below.
 
 ## Architecture Summary
 
